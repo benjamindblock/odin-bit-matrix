@@ -11,66 +11,104 @@ Bit_Matrix :: struct {
 	grid: []u8,
 }
 
-set :: proc(m: ^Bit_Matrix, x: int, y: int) {
-	fmt.printf("Setting (%v, %v) to 1\n", x, y)
+/*
+	The location of a specific bit in the matrix must be addressed with two values:
+	1. The index of the byte that the bit resides in.
+	2. The index of the bit (0 to 7) within that byte.
+*/
 
-	// Overall index in the slice of bytes.
-	// Eg., (0, 1) in a 2x2 matrix is at index: 2
-	n := (x * m.size) + y
-
-	// Find which byte we need to look in to find the bit that we are setting.
-	byte_i: int = int(math.floor(f64(n) / 8.0))
-
-	// Find the position of the bit within the byte.
-	pos := uint(n - (byte_i * 8))
-
-	// Construct the bit mask to set the bit in question.
-	mask := u8(1 << pos)
-
-	m.grid[byte_i] = m.grid[byte_i] | mask
+Bit_Address :: struct {
+	byte_i: int,
+	bit_i: int,
 }
 
-is_set :: proc(m: Bit_Matrix, x: int, y: int) -> bool {
+/*
+	Converts a coordinate (x, y) into the position of the bit in the
+	list of bytes that represents the matrix.
+
+	Example: a 3x3 matrix
+
+	1 0 0
+	0 0 0
+	0 0 0
+*/
+coordinate_to_bit_address :: proc(m: ^Bit_Matrix, x: int, y: int) -> Bit_Address {
 	// Overall index in the slice of bytes.
 	// Eg., (0, 1) in a 2x2 matrix is at index: 2
 	n := (x * m.size) + y
 
-	// Find which byte we need to look in to find the bit that we are setting.
-	byte_i: int = int(math.floor(f64(n) / 8.0))
+	byte_i := int(math.floor(f64(n) / 8.0))
+	bit_i := n - (byte_i * 8)
+	return Bit_Address{byte_i, bit_i}
+}
 
-	// Get the byte
-	byte := m.grid[byte_i]
+/*
+	Sets a bit at a position (x, y) to 1 in the matrix.
 
-	// Find the position of the bit within the byte.
-	pos := uint(n - (byte_i * 8))
+	If the bit is already set to to 1, no change will occur.
+*/
+set :: proc(m: ^Bit_Matrix, x: int, y: int) {
+	ba := coordinate_to_bit_address(m, x, y)
 
-	// Check if set.
+	// Construct the bit mask to set the bit in question.
+	mask := u8(1 << uint(ba.bit_i))
+
+	// Set the bit.
+	m.grid[ba.byte_i] = m.grid[ba.byte_i] | mask
+
+	when ODIN_DEBUG {
+		fmt.printf("Set (%v, %v)\n", x, y)
+	}
+}
+
+/*
+	Checks if a given bit is set (to 1).
+*/
+is_set :: proc(m: ^Bit_Matrix, x: int, y: int) -> bool {
+	ba := coordinate_to_bit_address(m, x, y)
+	byte := m.grid[ba.byte_i]
+
 	// Ref: https://www.geeksforgeeks.org/check-whether-k-th-bit-set-not/
-	// Left shift given number 1 by k to create a number that has only set bit as k-th bit.
-	// If bitwise AND of n and temp is non-zero, then result is SET else result is NOT SET.
-	setp := (byte & (1 << pos)) != 0
+	//   Store as 'temp': left shift 1 by k to create a number that has only the k-th bit set.
+	//   If bitwise AND of n and 'temp' is non-zero, then the bit is set.
+	setp := (byte & (1 << uint(ba.bit_i))) != 0
 
-	fmt.printf("(%v, %v) is set: %v\n", x, y, setp)
+	when ODIN_DEBUG {
+		fmt.printf("(%v, %v) is set? [%v]\n", x, y, setp)
+	}
+
 	return setp
 }
 
+/*
+	Sets a bit at a position (x, y) to 0 in the matrix.
+
+	If the bit is already set to to 0, no change will occur.
+*/
 unset :: proc(m: ^Bit_Matrix, x: int, y: int) {
-	fmt.printf("Unsetting (%v, %v)\n", x, y)
+	ba := coordinate_to_bit_address(m, x, y)
 
-	// Overall index in the slice of bytes.
-	// Eg., (0, 1) in a 2x2 matrix is at index: 2
-	n := (x * m.size) + y
+	// Construct the bit mask to set the bit in question to 0.
+	mask := u8(1 << uint(ba.bit_i))
 
-	// Find which byte we need to look in to find the bit that we are setting.
-	byte_i: int = int(math.floor(f64(n) / 8.0))
+	m.grid[ba.byte_i] = m.grid[ba.byte_i] & ~mask
 
-	// Find the position of the bit within the byte.
-	pos := uint(n - (byte_i * 8))
+	when ODIN_DEBUG {
+		fmt.printf("Unset (%v, %v)\n", x, y)
+	}
+}
 
-	// Construct the bit mask to set the bit in question.
-	mask := u8(1 << pos)
+/*
+	Checks if a given bit is unset (eg., is 0).
+*/
+is_unset :: proc(m: ^Bit_Matrix, x: int, y: int) -> bool {
+	unsetp := !is_set(m, x, y)
 
-	m.grid[byte_i] = m.grid[byte_i] & ~mask
+	when ODIN_DEBUG {
+		fmt.printf("(%v, %v) is *not* set? [%v]\n", x, y, unsetp)
+	}
+
+	return unsetp
 }
 
 // Prints the Bit_Matrix
@@ -149,12 +187,14 @@ _main :: proc() {
 	unset(&m, 0, 0)
 	print_as_grid(m)
 
-	is_set(m, 0, 0)
-	is_set(m, 0, 1)
-	is_set(m, 1, 1)
-	is_set(m, 1, 2)
-	is_set(m, 3, 0)
-	is_set(m, 3, 1)
+	is_set(&m, 0, 0)
+	is_set(&m, 0, 1)
+	is_set(&m, 1, 1)
+	is_set(&m, 1, 2)
+	is_set(&m, 3, 0)
+	is_unset(&m, 3, 0)
+	is_set(&m, 3, 1)
+	is_unset(&m, 3, 1)
 }
 
 main :: proc() {
