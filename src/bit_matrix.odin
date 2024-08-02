@@ -6,6 +6,10 @@ import "core:mem"
 import "core:os"
 import "core:strings"
 
+/*
+	The bit matrix.
+	It will always be a square matrix.
+*/
 Bit_Matrix :: struct {
 	size: int,
 	grid: []u8,
@@ -16,10 +20,17 @@ Bit_Matrix :: struct {
 	1. The index of the byte that the bit resides in.
 	2. The index of the bit (0 to 7) within that byte.
 */
-
 Bit_Address :: struct {
 	byte_i: int,
 	bit_i: int,
+}
+
+/*
+	A coordinate (x, y) in the matrix that identifies an element.
+*/
+Coordinate :: struct {
+	x: int,
+	y: int,
 }
 
 /*
@@ -32,10 +43,10 @@ Bit_Address :: struct {
 	0 0 0
 	0 0 0
 */
-coordinate_to_bit_address :: proc(m: ^Bit_Matrix, x: int, y: int) -> Bit_Address {
+coordinate_to_bit_address :: proc(m: ^Bit_Matrix, c: Coordinate) -> Bit_Address {
 	// Overall index in the slice of bytes.
 	// Eg., (0, 1) in a 2x2 matrix is at index: 2
-	n := (x * m.size) + y
+	n := (c.x * m.size) + c.y
 
 	byte_i := int(math.floor(f64(n) / 8.0))
 	bit_i := n - (byte_i * 8)
@@ -47,8 +58,8 @@ coordinate_to_bit_address :: proc(m: ^Bit_Matrix, x: int, y: int) -> Bit_Address
 
 	If the bit is already set to to 1, no change will occur.
 */
-set :: proc(m: ^Bit_Matrix, x: int, y: int) {
-	ba := coordinate_to_bit_address(m, x, y)
+set :: proc(m: ^Bit_Matrix, c: Coordinate) {
+	ba := coordinate_to_bit_address(m, c)
 
 	// Construct the bit mask to set the bit in question.
 	mask := u8(1 << uint(ba.bit_i))
@@ -57,15 +68,15 @@ set :: proc(m: ^Bit_Matrix, x: int, y: int) {
 	m.grid[ba.byte_i] = m.grid[ba.byte_i] | mask
 
 	when ODIN_DEBUG {
-		fmt.printf("Set (%v, %v)\n", x, y)
+		fmt.printf("Set (%v, %v)\n", c.x, c.y)
 	}
 }
 
 /*
 	Checks if a given bit is set (to 1).
 */
-is_set :: proc(m: ^Bit_Matrix, x: int, y: int) -> bool {
-	ba := coordinate_to_bit_address(m, x, y)
+is_set :: proc(m: ^Bit_Matrix, c: Coordinate) -> bool {
+	ba := coordinate_to_bit_address(m, c)
 	byte := m.grid[ba.byte_i]
 
 	// Ref: https://www.geeksforgeeks.org/check-whether-k-th-bit-set-not/
@@ -74,7 +85,7 @@ is_set :: proc(m: ^Bit_Matrix, x: int, y: int) -> bool {
 	setp := (byte & (1 << uint(ba.bit_i))) != 0
 
 	when ODIN_DEBUG {
-		fmt.printf("(%v, %v) is set? [%v]\n", x, y, setp)
+		fmt.printf("(%v, %v) is set? [%v]\n", c.x, c.y, setp)
 	}
 
 	return setp
@@ -85,8 +96,8 @@ is_set :: proc(m: ^Bit_Matrix, x: int, y: int) -> bool {
 
 	If the bit is already set to to 0, no change will occur.
 */
-unset :: proc(m: ^Bit_Matrix, x: int, y: int) {
-	ba := coordinate_to_bit_address(m, x, y)
+unset :: proc(m: ^Bit_Matrix, c: Coordinate) {
+	ba := coordinate_to_bit_address(m, c)
 
 	// Construct the bit mask to set the bit in question to 0.
 	mask := u8(1 << uint(ba.bit_i))
@@ -94,21 +105,59 @@ unset :: proc(m: ^Bit_Matrix, x: int, y: int) {
 	m.grid[ba.byte_i] = m.grid[ba.byte_i] & ~mask
 
 	when ODIN_DEBUG {
-		fmt.printf("Unset (%v, %v)\n", x, y)
+		fmt.printf("Unset (%v, %v)\n", c.x, c.y)
 	}
 }
 
 /*
 	Checks if a given bit is unset (eg., is 0).
 */
-is_unset :: proc(m: ^Bit_Matrix, x: int, y: int) -> bool {
-	unsetp := !is_set(m, x, y)
+is_unset :: proc(m: ^Bit_Matrix, c: Coordinate) -> bool {
+	unsetp := !is_set(m, c)
 
 	when ODIN_DEBUG {
-		fmt.printf("(%v, %v) is *not* set? [%v]\n", x, y, unsetp)
+		fmt.printf("(%v, %v) is *not* set? [%v]\n", c.x, c.y, unsetp)
 	}
 
 	return unsetp
+}
+
+/*
+	Returns a dynamic array of Coordinate structs. Each Coordinate points to an element
+	in the matrix that is set to 1.
+*/
+set_elements :: proc(m: ^Bit_Matrix, allocator := context.allocator) -> [dynamic]Coordinate {
+	p := make([dynamic]Coordinate, allocator)
+
+	for x in 0..<m.size {
+		for y in 0..<m.size {
+			c := Coordinate{x, y}
+			if is_set(m, c) {
+				append(&p, c)
+			}
+		}
+	}
+
+	return p
+}
+
+/*
+	Returns a dynamic array of Coordinate structs. Each Coordinate points to an element
+	in the matrix that is set to 0.
+*/
+unset_elements :: proc(m: ^Bit_Matrix, allocator := context.allocator) -> [dynamic]Coordinate {
+	p := make([dynamic]Coordinate, allocator)
+
+	for x in 0..<m.size {
+		for y in 0..<m.size {
+			c := Coordinate{x, y}
+			if is_unset(m, c) {
+				append(&p, c)
+			}
+		}
+	}
+
+	return p
 }
 
 // Prints the Bit_Matrix
@@ -154,20 +203,13 @@ print_as_grid :: proc(m: Bit_Matrix) {
 	fmt.printf("\n\n")
 }
 
-/*
-	0 1
-	1 0
-
-	0110
-*/
 _main :: proc() {
 	size := 4
 	floor: f64 = (f64(size) / 8.0)
 	n_squares := math.ceil(floor) * 8
 	n_bytes := (n_squares / 8) + 1
 
-	grid, _ := make([]u8, int(n_bytes))
-	defer(delete(grid))
+	grid, _ := make([]u8, int(n_bytes), allocator = context.temp_allocator)
 
 	m := Bit_Matrix{
 		size=size,
@@ -176,25 +218,28 @@ _main :: proc() {
 
 	fmt.println("\nINITIAL")
 	print_as_grid(m)
-	set(&m, 1, 1)
+	set(&m, Coordinate{1, 1})
 	print_as_grid(m)
-	set(&m, 0, 1)
+	set(&m, Coordinate{0, 1})
 	print_as_grid(m)
-	set(&m, 3, 0)
+	set(&m, Coordinate{3, 0})
 	print_as_grid(m)
-	set(&m, 0, 0)
+	set(&m, Coordinate{0, 0})
 	print_as_grid(m)
-	unset(&m, 0, 0)
+	unset(&m, Coordinate{0, 0})
 	print_as_grid(m)
 
-	is_set(&m, 0, 0)
-	is_set(&m, 0, 1)
-	is_set(&m, 1, 1)
-	is_set(&m, 1, 2)
-	is_set(&m, 3, 0)
-	is_unset(&m, 3, 0)
-	is_set(&m, 3, 1)
-	is_unset(&m, 3, 1)
+	is_set(&m, Coordinate{0, 0})
+	is_set(&m, Coordinate{0, 1})
+	is_set(&m, Coordinate{1, 1})
+	is_set(&m, Coordinate{1, 2})
+	is_set(&m, Coordinate{3, 0})
+	is_unset(&m, Coordinate{3, 0})
+	is_set(&m, Coordinate{3, 1})
+	is_unset(&m, Coordinate{3, 1})
+
+	fmt.println("Set locations:", set_elements(&m, allocator = context.temp_allocator))
+	fmt.println("Unset locations:", unset_elements(&m, allocator = context.temp_allocator))
 }
 
 main :: proc() {
