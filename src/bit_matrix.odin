@@ -40,20 +40,20 @@ Coordinate :: struct {
 /*
 	Checks if two matrices are the same dimensions.
 */
-same_dimensions :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> bool {
-	return bm.cols == other.cols && bm.rows == other.rows
+same_dimensions :: proc(a, b: Bit_Matrix) -> bool {
+	return a.cols == b.cols && a.rows == b.rows
 }
 
 /*
 	Logical AND
 */
-and :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
-	if !same_dimensions(bm, other) {
+and :: proc(dest, src: ^Bit_Matrix) -> (ok: bool) {
+	if !same_dimensions(dest^, src^) {
 		return false
 	}
 
-	for byte, i in bm.grid {
-		bm.grid[i] = byte & other.grid[i]
+	for &byte, i in dest.grid {
+		byte &= src.grid[i]
 	}
 
 	return true
@@ -62,13 +62,13 @@ and :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
 /*
 	Logical OR
 */
-or :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
-	if !same_dimensions(bm, other) {
+or :: proc(dest, src: ^Bit_Matrix) -> (ok: bool) {
+	if !same_dimensions(dest^, src^) {
 		return false
 	}
 
-	for byte, i in bm.grid {
-		bm.grid[i] = byte | other.grid[i]
+	for &byte, i in dest.grid {
+		byte |= src.grid[i]
 	}
 
 	return true
@@ -77,13 +77,13 @@ or :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
 /*
 	Logical XOR
 */
-xor :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
-	if !same_dimensions(bm, other) {
+xor :: proc(dest, src: ^Bit_Matrix) -> (ok: bool) {
+	if !same_dimensions(dest^, src^) {
 		return false
 	}
 
-	for byte, i in bm.grid {
-		bm.grid[i] = byte ~ other.grid[i]
+	for &byte, i in dest.grid {
+		byte ~= src.grid[i]
 	}
 
 	return true
@@ -92,13 +92,13 @@ xor :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
 /*
 	Logical AND NOT
 */
-and_not :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
-	if !same_dimensions(bm, other) {
+and_not :: proc(dest, src: ^Bit_Matrix) -> (ok: bool) {
+	if !same_dimensions(dest^, src^) {
 		return false
 	}
 
-	for byte, i in bm.grid {
-		bm.grid[i] = byte &~ other.grid[i]
+	for &byte, i in dest.grid {
+		byte &~= src.grid[i]
 	}
 
 	return true
@@ -107,12 +107,12 @@ and_not :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
 /*
 	Checks if a two Bit_Matrix structs are equivalent.
 */
-equals :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (equalp: bool, ok: bool) {
-	if !same_dimensions(bm, other) {
+equals :: proc(a, b: Bit_Matrix) -> (equalp: bool, ok: bool) {
+	if !same_dimensions(a, b) {
 		return false, false
 	}
 
-	return slice.equal(bm.grid, other.grid), true
+	return slice.equal(a.grid, b.grid), true
 }
 
 /*
@@ -158,8 +158,8 @@ clone :: proc(ref: Bit_Matrix, allocator := context.allocator) -> (bm: Bit_Matri
 	Copy the grid of one Bit_Matrix to another.
 	Will fail if the two Bit_Matrix structs do not have the same dimensions.
 */
-copy :: proc(dest: ^Bit_Matrix, src: ^Bit_Matrix) -> (ok: bool) {
-	if !same_dimensions(dest, src) {
+copy :: proc(dest, src: ^Bit_Matrix) -> (ok: bool) {
+	if !same_dimensions(dest^, src^) {
 		return false
 	}
 
@@ -201,7 +201,7 @@ cardinality :: proc(bm: Bit_Matrix) -> int {
 	Converts a coordinate (x, y) into the position of the bit in the
 	list of bytes that represents the matrix.
 */
-coordinate_to_bit_address :: proc(bm: ^Bit_Matrix, c: Coordinate) -> (ba: Bit_Address, ok: bool) {
+coordinate_to_bit_address :: proc(bm: Bit_Matrix, c: Coordinate) -> (ba: Bit_Address, ok: bool) {
 	if c.x < 0 || c.y < 0 || c.x >= bm.cols || c.y >= bm.rows {
 		return ba, false
 	}
@@ -221,7 +221,7 @@ coordinate_to_bit_address :: proc(bm: ^Bit_Matrix, c: Coordinate) -> (ba: Bit_Ad
 	If the bit is already set to to 1, no change will occur.
 */
 set :: proc(bm: ^Bit_Matrix, c: Coordinate) -> (ok: bool) {
-	ba := coordinate_to_bit_address(bm, c) or_return
+	ba := coordinate_to_bit_address(bm^, c) or_return
 
 	// Construct the bit mask to set the bit in question.
 	mask := u8(1 << uint(ba.bit_i))
@@ -237,27 +237,12 @@ set :: proc(bm: ^Bit_Matrix, c: Coordinate) -> (ok: bool) {
 }
 
 /*
-	Checks if a given bit is set (to 1).
-*/
-is_set :: proc(bm: ^Bit_Matrix, c: Coordinate) -> (setp: bool, ok: bool) {
-	ba := coordinate_to_bit_address(bm, c) or_return
-	byte := bm.grid[ba.byte_i]
-
-	// Ref: https://www.geeksforgeeks.org/check-whether-k-th-bit-set-not/
-	//   Store as 'temp': left shift 1 by k to create a number that has only the k-th bit set.
-	//   If bitwise AND of n and 'temp' is non-zero, then the bit is set.
-	setp = (byte & (1 << uint(ba.bit_i))) != 0
-
-	return setp, true
-}
-
-/*
 	Sets a bit at a position (x, y) to 0 in the matrix.
 
 	If the bit is already set to to 0, no change will occur.
 */
 unset :: proc(bm: ^Bit_Matrix, c: Coordinate) -> (ok: bool) {
-	ba := coordinate_to_bit_address(bm, c) or_return
+	ba := coordinate_to_bit_address(bm^, c) or_return
 
 	// Construct the bit mask to set the bit in question to 0.
 	mask := u8(1 << uint(ba.bit_i))
@@ -272,10 +257,25 @@ unset :: proc(bm: ^Bit_Matrix, c: Coordinate) -> (ok: bool) {
 }
 
 /*
+	Checks if a given bit is set (eg., to 1) in the Bit_Matrix.
+*/
+is_set :: proc(bm: Bit_Matrix, c: Coordinate) -> (setp: bool, ok: bool) {
+	ba := coordinate_to_bit_address(bm, c) or_return
+	byte := bm.grid[ba.byte_i]
+
+	// Ref: https://www.geeksforgeeks.org/check-whether-k-th-bit-set-not/
+	//   Store as 'temp': left shift 1 by k to create a number that has only the k-th bit set.
+	//   If bitwise AND of n and 'temp' is non-zero, then the bit is set.
+	setp = (byte & (1 << uint(ba.bit_i))) != 0
+
+	return setp, true
+}
+
+/*
 	Returns a dynamic array of Coordinate structs. Each Coordinate points to an element
 	in the matrix that is set to 1.
 */
-set_elements :: proc(bm: ^Bit_Matrix, allocator := context.allocator) -> [dynamic]Coordinate {
+list_set_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [dynamic]Coordinate {
 	p := make([dynamic]Coordinate, allocator)
 
 	for x in 0..<bm.cols {
@@ -294,7 +294,7 @@ set_elements :: proc(bm: ^Bit_Matrix, allocator := context.allocator) -> [dynami
 	Returns a dynamic array of Coordinate structs. Each Coordinate points to an element
 	in the matrix that is set to 0.
 */
-unset_elements :: proc(bm: ^Bit_Matrix, allocator := context.allocator) -> [dynamic]Coordinate {
+list_unset_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [dynamic]Coordinate {
 	p := make([dynamic]Coordinate, allocator)
 
 	for x in 0..<bm.cols {
@@ -373,44 +373,9 @@ _main :: proc() {
 		panic("Could not make Bit_Matrix.")
 	}
 
-	fmt.println("\nINITIAL")
-	print(bm)
 	set(&bm, Coordinate{1, 4})
-	print(bm)
 	set(&bm, Coordinate{0, 0})
 	print(bm)
-	unset(&bm, Coordinate{0, 0})
-	print(bm)
-
-	fmt.println("\nAND")
-	bm1, _ := make_bit_matrix(cols=2, rows=5)
-	bm2, _ := make_bit_matrix(cols=2, rows=5)
-	set(&bm1, Coordinate{0, 0})
-	set(&bm1, Coordinate{1, 2})
-	set(&bm1, Coordinate{1, 3})
-	print(bm1)
-	set(&bm2, Coordinate{0, 0})
-	set(&bm2, Coordinate{1, 2})
-	print(bm2)
-	and(&bm1, &bm2)
-	fmt.println("AFTER AND")
-	print(bm1)
-
-	fmt.println("COPIED")
-	bm3, nil := clone(bm1, allocator = context.temp_allocator)
-	fmt.println("EQUAL", equals(&bm2, &bm3))
-	set(&bm2, Coordinate{1, 1})
-	fmt.println("EQUAL", equals(&bm2, &bm3))
-	destroy(bm1)
-	destroy(bm2)
-	print(bm3)
-	fmt.println("CARD", cardinality(bm3))
-	clear(&bm3)
-	print(bm3)
-	fmt.println("CARD", cardinality(bm3))
-
-	fmt.println("Set locations:", set_elements(&bm, allocator = context.temp_allocator))
-	fmt.println("Unset locations:", unset_elements(&bm, allocator = context.temp_allocator))
 }
 
 main :: proc() {

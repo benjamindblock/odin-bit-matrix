@@ -17,5 +17,4 @@ test:
 		-show-timings \
 		-strict-style \
 		-warnings-as-errors \
-		-debug \
 		-no-dynamic-literals
