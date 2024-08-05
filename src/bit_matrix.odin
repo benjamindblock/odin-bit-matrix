@@ -5,6 +5,7 @@ import "core:math"
 import "core:mem"
 import "core:os"
 import "core:strings"
+import "core:slice"
 
 BYTE_F64: f64 : 8.0
 BYTE_INT: int : 8
@@ -36,10 +37,85 @@ Coordinate :: struct {
 	y: int,
 }
 
+/*
+	Checks if two matrices are the same dimensions.
+*/
+same_dimensions :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> bool {
+	return bm.cols == other.cols && bm.rows == other.rows
+}
+
+/*
+	Logical AND
+*/
+and :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
+	if !same_dimensions(bm, other) {
+		return false
+	}
+
+	for byte, i in bm.grid {
+		bm.grid[i] = byte & other.grid[i]
+	}
+
+	return true
+}
+
+/*
+	Logical OR
+*/
+or :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
+	if !same_dimensions(bm, other) {
+		return false
+	}
+
+	for byte, i in bm.grid {
+		bm.grid[i] = byte | other.grid[i]
+	}
+
+	return true
+}
+
+/*
+	Logical XOR
+*/
+xor :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
+	if !same_dimensions(bm, other) {
+		return false
+	}
+
+	for byte, i in bm.grid {
+		bm.grid[i] = byte ~ other.grid[i]
+	}
+
+	return true
+}
+
+/*
+	Logical AND NOT
+*/
+and_not :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
+	if !same_dimensions(bm, other) {
+		return false
+	}
+
+	for byte, i in bm.grid {
+		bm.grid[i] = byte &~ other.grid[i]
+	}
+
+	return true
+}
+
+equals :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (equalp: bool, ok: bool) {
+	if !same_dimensions(bm, other) {
+		return false, false
+	}
+
+	return slice.equal(bm.grid, other.grid), true
+}
+
 make_bit_matrix :: proc(cols: int, rows: int, allocator := context.allocator) -> (bm: Bit_Matrix, ok: bool) {
 	n_squares := cols * rows
 	n_bytes := int(math.ceil(f64(n_squares) / BYTE_F64))
-	grid, err := make([]u8, int(n_bytes), allocator = context.temp_allocator)
+	grid, err := make([]u8, int(n_bytes), allocator = allocator)
 
 	if err != nil {
 		return bm, false
@@ -51,6 +127,35 @@ make_bit_matrix :: proc(cols: int, rows: int, allocator := context.allocator) ->
 		grid=grid,
 	}
 	return bm, true
+}
+
+destroy :: proc(bm: Bit_Matrix) {
+	delete(bm.grid)
+}
+
+copy :: proc(ref: Bit_Matrix, allocator := context.allocator) -> (bm: Bit_Matrix, ok: bool) {
+	bm = make_bit_matrix(cols=ref.cols, rows=ref.rows, allocator=allocator) or_return
+	bm.grid = slice.clone(ref.grid, allocator=allocator)
+
+	return bm, true
+}
+
+/*
+	Returns the cardinality of the matrix (eg., how many elements
+	are set to 1).
+*/
+cardinality :: proc(bm: Bit_Matrix) -> int {
+	c: u8 = 0
+
+	for byte in bm.grid {
+		n := byte
+		for n > 0 {
+			c = c + (n & 1)
+			n = n >> 1
+		}
+	}
+
+	return int(c)
 }
 
 /*
@@ -223,6 +328,31 @@ _main :: proc() {
 	print_as_grid(bm)
 	unset(&bm, Coordinate{0, 0})
 	print_as_grid(bm)
+
+	fmt.println("\nAND")
+	bm1, _ := make_bit_matrix(cols=2, rows=5)
+	bm2, _ := make_bit_matrix(cols=2, rows=5)
+	set(&bm1, Coordinate{0, 0})
+	set(&bm1, Coordinate{1, 2})
+	set(&bm1, Coordinate{1, 3})
+	print_as_grid(bm1)
+	set(&bm2, Coordinate{0, 0})
+	set(&bm2, Coordinate{1, 2})
+	print_as_grid(bm2)
+	and(&bm1, &bm2)
+	fmt.println("AFTER AND")
+	print_as_grid(bm1)
+
+	fmt.println("COPIED")
+	bm3, nil := copy(bm1, allocator = context.temp_allocator)
+	fmt.println("EQUAL", equals(&bm2, &bm3))
+	set(&bm2, Coordinate{1, 1})
+	fmt.println("EQUAL", equals(&bm2, &bm3))
+	destroy(bm1)
+	destroy(bm2)
+	print_as_grid(bm3)
+
+	fmt.println("CARD", cardinality(bm3))
 
 	fmt.println("Set locations:", set_elements(&bm, allocator = context.temp_allocator))
 	fmt.println("Unset locations:", unset_elements(&bm, allocator = context.temp_allocator))
