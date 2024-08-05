@@ -140,6 +140,12 @@ copy :: proc(ref: Bit_Matrix, allocator := context.allocator) -> (bm: Bit_Matrix
 	return bm, true
 }
 
+clear :: proc(bm: ^Bit_Matrix) {
+	for &byte in bm.grid {
+		byte = 0
+	}
+}
+
 /*
 	Returns the cardinality of the matrix (eg., how many elements
 	are set to 1).
@@ -351,7 +357,9 @@ _main :: proc() {
 	destroy(bm1)
 	destroy(bm2)
 	print_as_grid(bm3)
-
+	fmt.println("CARD", cardinality(bm3))
+	clear(&bm3)
+	print_as_grid(bm3)
 	fmt.println("CARD", cardinality(bm3))
 
 	fmt.println("Set locations:", set_elements(&bm, allocator = context.temp_allocator))
