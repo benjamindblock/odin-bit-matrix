@@ -1,4 +1,4 @@
-package main
+package bit_matrix
 
 import "core:fmt"
 import "core:math"
@@ -104,6 +104,9 @@ and_not :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (ok: bool) {
 	return true
 }
 
+/*
+	Checks if a two Bit_Matrix structs are equivalent.
+*/
 equals :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (equalp: bool, ok: bool) {
 	if !same_dimensions(bm, other) {
 		return false, false
@@ -112,6 +115,11 @@ equals :: proc(bm: ^Bit_Matrix, other: ^Bit_Matrix) -> (equalp: bool, ok: bool) 
 	return slice.equal(bm.grid, other.grid), true
 }
 
+/*
+	Initializes a new Bit_Matrix with the given dimensions.
+
+	Allocates the grid using the given allocator, or the allocator of the current context.
+*/
 make_bit_matrix :: proc(cols: int, rows: int, allocator := context.allocator) -> (bm: Bit_Matrix, ok: bool) {
 	n_squares := cols * rows
 	n_bytes := int(math.ceil(f64(n_squares) / BYTE_F64))
@@ -129,17 +137,42 @@ make_bit_matrix :: proc(cols: int, rows: int, allocator := context.allocator) ->
 	return bm, true
 }
 
+/*
+	Frees the memory used by a Bit_Matrix.
+*/
 destroy :: proc(bm: Bit_Matrix) {
 	delete(bm.grid)
 }
 
-copy :: proc(ref: Bit_Matrix, allocator := context.allocator) -> (bm: Bit_Matrix, ok: bool) {
+/*
+	Clone an existing Bit_Matrix to a new one.
+*/
+clone :: proc(ref: Bit_Matrix, allocator := context.allocator) -> (bm: Bit_Matrix, ok: bool) {
 	bm = make_bit_matrix(cols=ref.cols, rows=ref.rows, allocator=allocator) or_return
 	bm.grid = slice.clone(ref.grid, allocator=allocator)
 
 	return bm, true
 }
 
+/*
+	Copy the grid of one Bit_Matrix to another.
+	Will fail if the two Bit_Matrix structs do not have the same dimensions.
+*/
+copy :: proc(dest: ^Bit_Matrix, src: ^Bit_Matrix) -> (ok: bool) {
+	if !same_dimensions(dest, src) {
+		return false
+	}
+
+	for &byte, i in dest.grid {
+		byte = src.grid[i]
+	}
+
+	return true
+}
+
+/*
+	Clears a Bit_Matrix, setting all values to zero.
+*/
 clear :: proc(bm: ^Bit_Matrix) {
 	for &byte in bm.grid {
 		byte = 0
@@ -277,8 +310,14 @@ unset_elements :: proc(bm: ^Bit_Matrix, allocator := context.allocator) -> [dyna
 	return p
 }
 
-// Prints the Bit_Matrix
-print_as_grid :: proc(bm: Bit_Matrix) {
+to_string :: proc(bm: Bit_Matrix, allocator := context.allocator) -> string {
+	if bm.rows == 0 || bm.cols == 0 {
+		return ""
+	}
+
+	sb := strings.builder_make()
+	defer strings.builder_destroy(&sb)
+
 	// Coordinates in the Bit_Matrix.
 	x := -1
 	y := -1
@@ -302,9 +341,10 @@ print_as_grid :: proc(bm: Bit_Matrix) {
 		if (n % bm.cols) == 0 {
 			x = x + 1
 			y = 0
-			fmt.printf("\n")
+			strings.write_byte(&sb, '\n')
 		} else {
 			y = y + 1
+			strings.write_byte(&sb, ' ')
 		}
 
 		// Find the index of the bit within the current byte that we want
@@ -314,10 +354,17 @@ print_as_grid :: proc(bm: Bit_Matrix) {
 		bit_i := 7 - int(n - (z * BYTE_INT))
 
 		// Print the bit.
-		fmt.printf("%v ", string(s[bit_i:bit_i+1]))
+		strings.write_string(&sb, s[bit_i:bit_i+1])
 	}
 
-	fmt.printf("\n\n")
+	strings.write_byte(&sb, '\n')
+	return strings.clone(strings.to_string(sb), allocator = allocator)
+}
+
+// Prints the Bit_Matrix
+print :: proc(bm: Bit_Matrix) {
+	s := to_string(bm, allocator = context.temp_allocator)
+	fmt.printf(s)
 }
 
 _main :: proc() {
@@ -327,13 +374,13 @@ _main :: proc() {
 	}
 
 	fmt.println("\nINITIAL")
-	print_as_grid(bm)
+	print(bm)
 	set(&bm, Coordinate{1, 4})
-	print_as_grid(bm)
+	print(bm)
 	set(&bm, Coordinate{0, 0})
-	print_as_grid(bm)
+	print(bm)
 	unset(&bm, Coordinate{0, 0})
-	print_as_grid(bm)
+	print(bm)
 
 	fmt.println("\nAND")
 	bm1, _ := make_bit_matrix(cols=2, rows=5)
@@ -341,25 +388,25 @@ _main :: proc() {
 	set(&bm1, Coordinate{0, 0})
 	set(&bm1, Coordinate{1, 2})
 	set(&bm1, Coordinate{1, 3})
-	print_as_grid(bm1)
+	print(bm1)
 	set(&bm2, Coordinate{0, 0})
 	set(&bm2, Coordinate{1, 2})
-	print_as_grid(bm2)
+	print(bm2)
 	and(&bm1, &bm2)
 	fmt.println("AFTER AND")
-	print_as_grid(bm1)
+	print(bm1)
 
 	fmt.println("COPIED")
-	bm3, nil := copy(bm1, allocator = context.temp_allocator)
+	bm3, nil := clone(bm1, allocator = context.temp_allocator)
 	fmt.println("EQUAL", equals(&bm2, &bm3))
 	set(&bm2, Coordinate{1, 1})
 	fmt.println("EQUAL", equals(&bm2, &bm3))
 	destroy(bm1)
 	destroy(bm2)
-	print_as_grid(bm3)
+	print(bm3)
 	fmt.println("CARD", cardinality(bm3))
 	clear(&bm3)
-	print_as_grid(bm3)
+	print(bm3)
 	fmt.println("CARD", cardinality(bm3))
 
 	fmt.println("Set locations:", set_elements(&bm, allocator = context.temp_allocator))
