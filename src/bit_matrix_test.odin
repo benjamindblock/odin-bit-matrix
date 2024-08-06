@@ -16,6 +16,14 @@ test_set :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_set_index_err :: proc(t: ^testing.T) {
+	bm, _ := make_bit_matrix(cols = 1, rows = 1, allocator = context.temp_allocator)
+
+	err := set(&bm, 2, 2)
+	testing.expect_value(t, err, Bit_Matrix_Error.Index_Out_Of_Bounds_Error)
+}
+
+@(test)
 test_unset :: proc(t: ^testing.T) {
 	bm, _ := make_bit_matrix(cols = 2, rows = 2, allocator = context.temp_allocator)
 	set(&bm, 0, 1)
@@ -29,13 +37,25 @@ test_unset :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_get :: proc(t: ^testing.T) {
+	bm, _ := make_bit_matrix(cols = 2, rows = 2, allocator = context.temp_allocator)
+	set(&bm, 0, 1)
+
+	bit, _ := get(bm, 0, 1)
+	testing.expect_value(t, bit, 1)
+
+	bit, _ = get(bm, 0, 0)
+	testing.expect_value(t, bit, 0)
+}
+
+@(test)
 test_to_string :: proc(t: ^testing.T) {
 	bm, _ := make_bit_matrix(cols = 2, rows = 2, allocator = context.temp_allocator)
 	set(&bm, 0, 1)
 	set(&bm, 1, 1)
 
 	str := to_string(bm, allocator = context.temp_allocator)
-	exp_str := "\n0 0\n1 1\n"
+	exp_str := "0 0\n1 1\n"
 	testing.expect_value(t, str, exp_str)
 }
 
@@ -196,6 +216,15 @@ test_clone :: proc(t: ^testing.T) {
 
 	equalsp, _ := equals(a, b)
 	testing.expect_value(t, equalsp, true)
+}
+
+@(test)
+test_copy_illegal_arg :: proc(t: ^testing.T) {
+	a, _ := make_bit_matrix(cols = 1, rows = 1, allocator = context.temp_allocator)
+	b, _ := make_bit_matrix(cols = 2, rows = 2, allocator = context.temp_allocator)
+
+	err := copy(&a, &b)
+	testing.expect_value(t, err, Bit_Matrix_Error.Illegal_Argument_Error)
 }
 
 @(test)

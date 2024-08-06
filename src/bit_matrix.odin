@@ -9,8 +9,8 @@ import "core:os"
 import "core:strings"
 import "core:slice"
 
-BYTE_F64: f64 : 8.0
-BYTE_INT: int : 8
+BYTE_F64 : f64 : 8.0
+BYTE_INT : int : 8
 
 /*
 	Union to hold all errors.
@@ -51,7 +51,15 @@ Bit_Address :: struct {
 	Checks if two matrices are the same dimensions.
 */
 same_dimensions :: proc(a, b: Bit_Matrix) -> bool {
-	return a.cols == b.cols && a.rows == b.rows
+	samep := a.cols == b.cols && a.rows == b.rows
+
+	when ODIN_DEBUG {
+		if !samep {
+			fmt.printf("Bit_Matrix have different dimensions: %v, %v\n", a, b)
+		}
+	}
+
+	return samep
 }
 
 /*
@@ -213,6 +221,9 @@ cardinality :: proc(bm: Bit_Matrix) -> int {
 */
 coordinate_to_bit_address :: proc(bm: Bit_Matrix, x, y: int) -> (ba: Bit_Address, err: Error) {
 	if x < 0 || y < 0 || x >= bm.cols || y >= bm.rows {
+		when ODIN_DEBUG {
+			fmt.printf("Coordinate (%v, %v) out of bounds.\n", x, y)
+		}
 		return ba, .Index_Out_Of_Bounds_Error
 	}
 
@@ -279,6 +290,20 @@ is_set :: proc(bm: Bit_Matrix, x, y: int) -> (setp: bool, err: Error) {
 	setp = (byte & (1 << uint(ba.bit_i))) != 0
 
 	return setp, nil
+}
+
+/*
+	Get the value at a given coordinate.
+*/
+get :: proc(bm: Bit_Matrix, x, y: int) -> (v: int, err: Error) {
+	ba := coordinate_to_bit_address(bm, x, y) or_return
+	byte := bm.grid[ba.byte_i]
+
+	// Move the desired bit all the way to the right, then & 1 to check if it
+	// set to 0 or 1.
+	bit := (byte >> uint(ba.bit_i)) & 1
+
+	return int(bit), nil
 }
 
 /*
@@ -351,7 +376,10 @@ to_string :: proc(bm: Bit_Matrix, allocator := context.allocator) -> string {
 		if (n % bm.cols) == 0 {
 			x = x + 1
 			y = 0
-			strings.write_byte(&sb, '\n')
+
+			if n > 0 {
+				strings.write_byte(&sb, '\n')
+			}
 		} else {
 			y = y + 1
 			strings.write_byte(&sb, ' ')
@@ -386,6 +414,13 @@ _main :: proc() {
 
 	set(&bm, 1, 4)
 	set(&bm, 0, 0)
+	print(bm)
+
+	unset(&bm, 0, 0)
+	print(bm)
+
+	unset(&bm, 1, 4)
+	set(&bm, 1, 1)
 	print(bm)
 }
 
