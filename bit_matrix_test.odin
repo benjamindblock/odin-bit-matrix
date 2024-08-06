@@ -2,6 +2,35 @@ package bit_matrix
 
 import "core:strings"
 import "core:testing"
+import "core:slice"
+
+@(test)
+test_make_bit_matrix :: proc(t: ^testing.T) {
+	bm, _ := make_bit_matrix(cols = 3, rows = 2, allocator = context.temp_allocator)
+
+	testing.expect_value(t, bm.cols, 3)
+	testing.expect_value(t, bm.rows, 2)
+
+	exp_grid := []u8{0}
+	equalp := slice.equal(exp_grid, bm.grid)
+	testing.expect_value(t, equalp, true)
+}
+
+@(test)
+test_make_bit_matrix_invalid_err :: proc(t: ^testing.T) {
+	bm, err := make_bit_matrix(cols = 0, rows = 1, allocator = context.temp_allocator)
+
+	// Assert error.
+	testing.expect_value(t, err, Bit_Matrix_Error.Invalid_Dimensions_Error)
+
+	// Assert default nil vals for Bit_Matrix.
+	testing.expect_value(t, bm.cols, 0)
+	testing.expect_value(t, bm.rows, 0)
+
+	exp_grid := []u8{}
+	equalp := slice.equal(exp_grid, bm.grid)
+	testing.expect_value(t, equalp, true)
+}
 
 @(test)
 test_set :: proc(t: ^testing.T) {

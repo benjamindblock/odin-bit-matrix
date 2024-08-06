@@ -7,7 +7,7 @@
 
 run:
 	@mkdir -p bin
-	odin run src \
+	odin run . \
 		-out:bin/bit-matrix \
 		-show-timings \
 		-strict-style \
@@ -17,7 +17,7 @@ run:
 
 test:
 	@mkdir -p bin
-	odin test src \
+	odin test . \
 		-out:bin/bit-matrix \
 		-show-timings \
 		-strict-style \

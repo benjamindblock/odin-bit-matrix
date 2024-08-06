@@ -26,6 +26,7 @@ Error :: union #shared_nil {
 Bit_Matrix_Error :: enum {
 	Illegal_Argument_Error,
 	Index_Out_Of_Bounds_Error,
+	Invalid_Dimensions_Error,
 }
 
 /*
@@ -139,6 +140,10 @@ equals :: proc(a, b: Bit_Matrix) -> (equalp: bool, err: Error) {
 	Allocates the grid using the given allocator, or the allocator of the current context.
 */
 make_bit_matrix :: proc(cols: int, rows: int, allocator := context.allocator) -> (bm: Bit_Matrix, err: Error) {
+	if cols <= 0 || rows <= 0 {
+		return bm, .Invalid_Dimensions_Error		
+	}
+
 	n_squares := cols * rows
 	n_bytes := int(math.ceil(f64(n_squares) / BYTE_F64))
 	grid := make([]u8, int(n_bytes), allocator = allocator) or_return
@@ -422,6 +427,12 @@ _main :: proc() {
 	unset(&bm, 1, 4)
 	set(&bm, 1, 1)
 	print(bm)
+
+	l := list_set_elements(bm, allocator = context.temp_allocator)
+	fmt.println("Set elements:", l)
+
+	l = list_unset_elements(bm, allocator = context.temp_allocator)
+	fmt.println("Set elements:", l)
 }
 
 main :: proc() {
