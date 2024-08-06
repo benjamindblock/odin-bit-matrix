@@ -315,14 +315,17 @@ get :: proc(bm: Bit_Matrix, x, y: int) -> (v: int, err: Error) {
 	Returns a dynamic array of Coordinate structs. Each Coordinate points to an element
 	in the matrix that is set to 1.
 */
-list_set_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [dynamic][2]int {
-	p := make([dynamic][2]int, allocator)
+list_set_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [][2]int {
+	c := cardinality(bm)
+	p := make([][2]int, c, allocator)
 
+	i := 0
 	for x in 0..<bm.cols {
 		for y in 0..<bm.rows {
 			if is_set(bm, x, y) or_continue {
 				coordinate := [2]int{x, y}
-				append(&p, coordinate)
+				p[i] = coordinate
+				i += 1
 			}
 		}
 	}
@@ -334,15 +337,18 @@ list_set_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [dy
 	Returns a dynamic array of Coordinate structs. Each Coordinate points to an element
 	in the matrix that is set to 0.
 */
-list_unset_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [dynamic][2]int {
-	p := make([dynamic][2]int, allocator)
+list_unset_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [][2]int {
+	c := (bm.cols * bm.rows) - cardinality(bm)
+	p := make([][2]int, c, allocator)
 
+	i := 0
 	for x in 0..<bm.cols {
 		for y in 0..<bm.rows {
 			setp := is_set(bm, x, y) or_continue
 			if !setp {
 				coordinate := [2]int{x, y}
-				append(&p, coordinate)
+				p[i] = coordinate
+				i += 1
 			}
 		}
 	}

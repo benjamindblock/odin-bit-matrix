@@ -274,3 +274,33 @@ test_equals :: proc(t: ^testing.T) {
 	equalsp, _ = equals(a, b)
 	testing.expect_value(t, equalsp, true)
 }
+
+@(test)
+test_list_set_elements :: proc(t: ^testing.T) {
+	bm, _ := make_bit_matrix(cols = 2, rows = 2, allocator = context.temp_allocator)
+	set(&bm, 0, 1)
+	set(&bm, 1, 1)
+
+	els := list_set_elements(bm, allocator = context.temp_allocator)
+	exp_els: [2][2]int
+	exp_els[0] = {0, 1}
+	exp_els[1] = {1, 1}
+
+	equalp := slice.equal(els, exp_els[:])
+	testing.expect_value(t, equalp, true)
+}
+
+@(test)
+test_list_unset_elements :: proc(t: ^testing.T) {
+	bm, _ := make_bit_matrix(cols = 2, rows = 2, allocator = context.temp_allocator)
+	set(&bm, 0, 1)
+	set(&bm, 1, 1)
+
+	els := list_unset_elements(bm, allocator = context.temp_allocator)
+	exp_els: [2][2]int
+	exp_els[0] = {0, 0}
+	exp_els[1] = {1, 0}
+
+	equalp := slice.equal(els, exp_els[:])
+	testing.expect_value(t, equalp, true)
+}
