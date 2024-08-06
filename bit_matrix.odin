@@ -289,9 +289,9 @@ is_set :: proc(bm: Bit_Matrix, x, y: int) -> (setp: bool, err: Error) {
 	ba := coordinate_to_bit_address(bm, x, y) or_return
 	byte := bm.grid[ba.byte_i]
 
-	// Ref: https://www.geeksforgeeks.org/check-whether-k-th-bit-set-not/
-	//   Store as 'temp': left shift 1 by k to create a number that has only the k-th bit set.
-	//   If bitwise AND of n and 'temp' is non-zero, then the bit is set.
+	// How to check if a specific bit is set:
+	//   1. Store as 'temp': left shift 1 by k to create a number that has only the k-th bit set.
+	//   2. If bitwise AND of n and 'temp' is non-zero, then the bit is set.
 	setp = (byte & (1 << uint(ba.bit_i))) != 0
 
 	return setp, nil
@@ -433,6 +433,12 @@ _main :: proc() {
 
 	l = list_unset_elements(bm, allocator = context.temp_allocator)
 	fmt.println("Set elements:", l)
+
+	cloned, _ := clone(bm, allocator = context.temp_allocator)
+	print(cloned)
+
+	el, _ := get(cloned, 1, 1)
+	fmt.println("Element in cloned at (1, 1):", el)
 }
 
 main :: proc() {
