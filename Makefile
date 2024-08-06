@@ -1,4 +1,9 @@
-.PHONY: run
+############################################################
+# NOTE: This Makefile is only known to work on MacOS.
+#       It is only used for convenience during development.
+############################################################
+
+.PHONY: run test
 
 run:
 	@mkdir -p bin
