@@ -46,8 +46,8 @@ destroy :: proc(bm: Bit_Matrix)
 equals :: proc(a, b: Bit_Matrix) -> (equalp: bool, err: Error)
 get :: proc(bm: Bit_Matrix, x, y: int) -> (v: int, err: Error)
 is_set :: proc(bm: Bit_Matrix, x, y: int) -> (setp: bool, err: Error)
-list_set_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [dynamic][2]int
-list_unset_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [dynamic][2]int
+list_set_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [][2]int
+list_unset_elements :: proc(bm: Bit_Matrix, allocator := context.allocator) -> [][2]int
 make_bit_matrix :: proc(cols: int, rows: int, allocator := context.allocator) -> (bm: Bit_Matrix, err: Error)
 or :: proc(dest, src: ^Bit_Matrix) -> (err: Error)
 print :: proc(bm: Bit_Matrix)
